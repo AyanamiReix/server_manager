@@ -1,0 +1,16 @@
+{
+  "CompressAI-Vision": {
+    "url": "https://github.com/luojie-heyi/CompressAI-Vision.git",
+    "branch": "main",
+    "description": "CompressAI-Vision项目 - 视频压缩和目标检测",
+    "deploy_path": "/home/shared/projects/CompressAI-Vision",
+    "dependencies": [
+      "docker",
+      "python3",
+      "git"
+    ],
+    "setup_script": "setup.sh",
+    "docker_build": true,
+    "added_date": "2024-12-19T00:00:00"
+  }
+} 

@@ -1,0 +1,19 @@
+# luojie & heyi 服务器管理系统依赖文件
+
+# SSH连接和文件传输
+paramiko>=2.9.0
+
+# GUI界面
+tkinter  # 通常随Python标准库提供
+
+# 系统和文件操作
+pathlib  # Python 3.4+ 标准库
+shutil   # Python 标准库
+json     # Python 标准库
+os       # Python 标准库
+threading # Python 标准库
+subprocess # Python 标准库
+
+# 可选：增强功能
+psutil>=5.8.0  # 系统监控（可选）
+requests>=2.25.0  # HTTP请求（可选） 

@@ -1,0 +1,13 @@
+{
+  "pem_file": "E:\\server_connect\\luojie.pem",
+  "default_users": [
+    "luojie",
+    "heyi"
+  ],
+  "project_dir": "/home/shared/projects",
+  "backup_dir": "./backups",
+  "ssh_timeout": 30,
+  "default_port": 22,
+  "max_backup_retries": 3,
+  "log_level": "INFO"
+} 
