@@ -474,19 +474,19 @@ Docker权限: {'是' if docker_var.get() else '否'}
             
             if messagebox.askyesno("确认创建", preview):
             # 执行创建用户的命令
-            commands = [
-                # 创建用户
-                f"useradd -m -s /bin/bash {username}",
-                # 设置密码
-                f"echo '{username}:{password}' | chpasswd",
-                # 创建home目录
-                f"mkdir -p /home/{username}",
-                # 设置目录权限
-                f"chown {username}:{username} /home/{username}",
-                    f"chmod 755 /home/{username}",
-                    # 设置磁盘配额
-                    f"setquota -u {username} {int(disk_quota_var.get())*1024*1024} {int(disk_quota_var.get())*1024*1024} 0 0 /",
-            ]
+                commands = [
+                    # 创建用户
+                    f"useradd -m -s /bin/bash {username}",
+                    # 设置密码
+                    f"echo '{username}:{password}' | chpasswd",
+                    # 创建home目录
+                    f"mkdir -p /home/{username}",
+                    # 设置目录权限
+                    f"chown {username}:{username} /home/{username}",
+                        f"chmod 755 /home/{username}",
+                        # 设置磁盘配额
+                        f"setquota -u {username} {int(disk_quota_var.get())*1024*1024} {int(disk_quota_var.get())*1024*1024} 0 0 /",
+                ]
             
             if sudo_var.get():
                 commands.append(f"usermod -aG sudo {username}")
@@ -826,7 +826,7 @@ CPU核心：{info.get('cpu_cores', 'N/A')}
                         self.connected = True
                         self.current_ip = ip
                         self.log(f"✅ 服务器连接成功！({username}@{ip})")
-        self.update_status()
+                        self.update_status()
                         self.refresh_user_status()
                     else:
                         raise Exception("用户连接失败")
@@ -1267,9 +1267,9 @@ CPU核心：{info.get('cpu_cores', 'N/A')}
     def _log_message(self, message):
         """在主线程中添加日志消息"""
         if self.log_text:
-        self.log_text.insert(tk.END, f"{message}\n")
-        self.log_text.see(tk.END)
-        self.root.update()
+            self.log_text.insert(tk.END, f"{message}\n")
+            self.log_text.see(tk.END)
+            self.root.update()
     
     def auto_find_pem(self):
         """自动查找PEM文件"""
@@ -1287,15 +1287,15 @@ CPU核心：{info.get('cpu_cores', 'N/A')}
 
     def update_pem_status(self, pem_path):
         """更新PEM文件状态"""
-                self.pem_var.set(pem_path)
-                self.pem_status_label.configure(text="✅ PEM文件已找到", foreground="green")
-                self.log(f"✅ 自动找到PEM文件: {pem_path}")
+        self.pem_var.set(pem_path)
+        self.pem_status_label.configure(text="✅ PEM文件已找到", foreground="green")
+        self.log(f"✅ 自动找到PEM文件: {pem_path}")
                 
     def show_pem_not_found(self):
         """显示未找到PEM文件的提示"""
-                self.pem_status_label.configure(text="❌ 未找到PEM文件", foreground="red")
-                self.log("❌ 未找到PEM文件，请手动选择或上传")
-                messagebox.showinfo("提示", 
+        self.pem_status_label.configure(text="❌ 未找到PEM文件", foreground="red")
+        self.log("❌ 未找到PEM文件，请手动选择或上传")
+        messagebox.showinfo("提示", 
                     "未找到PEM文件！\n\n"
                     "请点击'浏览'按钮选择PEM文件，\n"
                     "或将luojie.pem文件放在以下位置之一：\n"
@@ -1453,12 +1453,12 @@ CPU核心：{info.get('cpu_cores', 'N/A')}
         try:
             if self.ssh_manager.connect(ip, "root", self.pem_var.get()):
                     self.connected = True
-                self.log("✅ 服务器连接成功")
-                return True
-                else:
+                    self.log("✅ 服务器连接成功")
+                    return True
+            else:
                     self.log("❌ 服务器连接失败")
-                return False
-            except Exception as e:
+                    return False
+        except Exception as e:
             self.log(f"❌ 连接出错: {str(e)}")
             return False
     
@@ -1481,12 +1481,12 @@ CPU核心：{info.get('cpu_cores', 'N/A')}
         def task():
             self.log("👥 开始创建用户...")
             try:
-            success = self.quick_setup.setup_users()
-            if success:
-                self.log("✅ 用户创建完成")
+                success = self.quick_setup.setup_users()
+                if success:
+                    self.log("✅ 用户创建完成")
                     self.root.after(1000, self.check_users)
-            else:
-                self.log("❌ 用户创建失败")
+                else:
+                    self.log("❌ 用户创建失败")
             except Exception as e:
                 self.log(f"❌ 创建用户时发生错误: {str(e)}")
         
@@ -1826,3 +1826,5 @@ def main():
 
 if __name__ == "__main__":
     main() 
+
+#嘿嘿
