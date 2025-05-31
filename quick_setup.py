@@ -84,14 +84,38 @@ class QuickSetup:
         """设置用户"""
         print("👥 创建和配置用户...")
         
-        users = self.config["default_users"]
-        for user in users:
-            print(f"📝 创建用户: {user}")
-            success = self.ssh_manager.execute_script("scripts/user_setup.sh", user)
-            if success:
-                print(f"✅ 用户 {user} 创建成功")
-            else:
-                print(f"❌ 用户 {user} 创建失败")
+        if not self.ssh_manager.is_connected():
+            print("❌ SSH未连接")
+            return False
+            
+        # 上传user_setup.sh脚本
+        script_path = Path("scripts/user_setup.sh")
+        if not script_path.exists():
+            print("❌ 找不到user_setup.sh脚本")
+            return False
+            
+        remote_script = "/tmp/user_setup.sh"
+        if not self.ssh_manager.upload_file(str(script_path), remote_script):
+            print("❌ 上传脚本失败")
+            return False
+            
+        # 设置脚本权限并执行
+        commands = [
+            f"chmod +x {remote_script}",
+            f"sudo bash {remote_script}"
+        ]
+        
+        for cmd in commands:
+            stdout, stderr, exit_code = self.ssh_manager.execute_command(cmd)
+            if exit_code != 0:
+                print(f"❌ 命令执行失败: {cmd}")
+                print(f"错误信息: {stderr}")
+                return False
+            if stdout:
+                print(stdout)
+            
+        print("✅ 用户创建完成")
+        return True
     
     def setup_docker(self):
         """设置Docker环境"""

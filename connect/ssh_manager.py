@@ -8,6 +8,7 @@ import paramiko
 import socket
 import time
 import threading
+import os
 from pathlib import Path
 
 class SSHManager:
@@ -63,6 +64,15 @@ class SSHManager:
                     self.username = username
                     self.is_connected_flag = True
                     print(f"✅ SSH连接成功: {username}@{ip_address}")
+                    
+                    # 获取系统信息
+                    try:
+                        stdin, stdout, stderr = self.client.exec_command("uname -a")
+                        system_info = stdout.read().decode().strip()
+                        print(f"📊 系统信息: {system_info}")
+                    except Exception as e:
+                        print(f"⚠️ 无法获取系统信息: {str(e)}")
+                    
                     return True
                 else:
                     print("❌ 连接测试失败")

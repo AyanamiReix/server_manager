@@ -1,0 +1,22 @@
+{
+  "exclude_patterns": [
+    "*.log",
+    "*.tmp",
+    "__pycache__/",
+    ".git/",
+    "node_modules/",
+    ".vscode/",
+    ".idea/",
+    "*.pyc",
+    "*.pyo",
+    ".DS_Store"
+  ],
+  "max_backups": 10,
+  "compress": true,
+  "backup_types": {
+    "full": "完整备份 - 包含所有文件",
+    "code": "代码备份 - 只包含源代码",
+    "quick": "快速备份 - 关键文件",
+    "custom": "自定义备份 - 用户选择"
+  }
+}
