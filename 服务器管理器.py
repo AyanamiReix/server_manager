@@ -23,6 +23,7 @@ from connect.ssh_manager import SSHManager
 from connect.pem_handler import PEMHandler
 from projects.github_manager import GitHubManager
 from backup.backup_manager import BackupManager
+from user_mode import UserModePanel
 
 class ServerManagerGUI:
     def __init__(self, root):
@@ -117,7 +118,19 @@ class ServerManagerGUI:
     def select_mode(self, is_admin):
         """选择管理模式"""
         self.is_admin_mode = is_admin
-        self.setup_connection_ui()
+        if is_admin:
+            self.setup_connection_ui()  # root模式：原有连接界面
+        else:
+            # 用户模式：直接进入UserModePanel，不显示PEM和连接界面
+            for widget in self.root.winfo_children():
+                widget.destroy()
+            self.user_panel = UserModePanel(
+                self.root,
+                self.ssh_manager,
+                self.github_manager,
+                self.backup_manager,
+                self.log
+            )
     
     def setup_connection_ui(self):
         """设置连接服务器界面"""
@@ -187,8 +200,18 @@ class ServerManagerGUI:
             if self.is_admin_mode:
                 self.setup_admin_main_ui()
             else:
-                self.setup_user_main_ui()
-                
+                # 清除现有界面
+                for widget in self.root.winfo_children():
+                    widget.destroy()
+                # 创建用户模式面板
+                self.user_panel = UserModePanel(
+                    self.root,
+                    self.ssh_manager,
+                    self.github_manager,
+                    self.backup_manager,
+                    self.log
+                )
+    
     def connect_server(self):
         """连接到服务器"""
         if not self.pem_var.get():
@@ -375,37 +398,6 @@ class ServerManagerGUI:
             self.log(f"❌ 公钥上传失败: {stderr}")
             messagebox.showerror("失败", f"公钥上传失败: {stderr}")
 
-    def setup_user_main_ui(self):
-        """设置用户主界面"""
-        # 清除现有界面
-        for widget in self.root.winfo_children():
-            widget.destroy()
-            
-        # 创建用户模式主框架
-        main_frame = ttk.Frame(self.root, padding="10")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        
-        # 配置网格权重
-        self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(0, weight=1)
-        main_frame.columnconfigure(1, weight=1)
-        main_frame.rowconfigure(1, weight=1)
-        
-        # 标题
-        title_label = ttk.Label(main_frame, 
-                              text="👤 服务器管理系统 - 用户模式",
-                              font=("Arial", 18, "bold"))
-        title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
-        
-        # 左侧连接面板
-        self.setup_user_connection_panel(main_frame)
-        
-        # 右侧功能区
-        self.setup_user_function_panel(main_frame)
-        
-        # 底部状态栏
-        self.setup_status_bar(main_frame)
-        
     def setup_admin_user_panel(self, parent):
         """设置管理员的用户管理面板"""
         user_frame = ttk.LabelFrame(parent, text="👥 用户管理", padding="10")
