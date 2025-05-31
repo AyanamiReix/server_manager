@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 import platform
 from datetime import datetime
+import configparser
 
 # 添加模块路径
 sys.path.append(str(Path(__file__).parent))
@@ -29,6 +30,10 @@ class ServerManagerGUI:
         self.root.title("🚀 服务器管理系统")
         self.root.geometry("1200x800")
         
+        # 加载配置
+        self.config = configparser.ConfigParser()
+        self.load_config()
+        
         # 初始化管理器
         self.quick_setup = QuickSetup()
         self.ssh_manager = SSHManager()
@@ -44,6 +49,28 @@ class ServerManagerGUI:
         # 设置初始模式选择UI
         self.setup_mode_selection()
         
+    def load_config(self):
+        """加载配置文件"""
+        config_file = Path("config/server_config.ini")
+        
+        # 如果配置文件不存在，创建默认配置
+        if not config_file.exists():
+            os.makedirs("config", exist_ok=True)
+            self.config["PEM"] = {
+                "default_path": str(Path.home() / ".ssh"),
+                "search_paths": "\n".join([
+                    str(Path.home() / ".ssh"),
+                    str(Path.home() / "Documents"),
+                    str(Path.home() / "Desktop"),
+                    "E:\\server_connect",
+                    "."
+                ])
+            }
+            with open(config_file, "w") as f:
+                self.config.write(f)
+        else:
+            self.config.read(config_file)
+    
     def setup_mode_selection(self):
         """设置初始模式选择界面"""
         # 清除现有界面
@@ -52,194 +79,228 @@ class ServerManagerGUI:
             
         # 创建主框架
         main_frame = ttk.Frame(self.root, padding="20")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        
-        # 配置网格权重
-        self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(0, weight=1)
+        main_frame.pack(expand=True, fill=tk.BOTH)
         
         # 标题
         title_label = ttk.Label(main_frame, 
                               text="🚀 服务器管理系统",
                               font=("Arial", 24, "bold"))
-        title_label.grid(row=0, column=0, columnspan=2, pady=(0, 30))
+        title_label.pack(pady=(0, 50))
         
         # 模式选择框架
-        mode_frame = ttk.LabelFrame(main_frame, text="选择管理模式", padding="20")
-        mode_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        mode_frame = ttk.Frame(main_frame)
+        mode_frame.pack(expand=True)
         
         # Root模式按钮
-        root_frame = ttk.Frame(mode_frame)
-        root_frame.pack(fill=tk.X, pady=10)
-        
-        ttk.Label(root_frame, 
-                 text="👑 Root管理模式",
-                 font=("Arial", 16, "bold")).pack()
-        ttk.Label(root_frame,
-                 text="用于创建用户和管理系统",
-                 font=("Arial", 10)).pack()
-        ttk.Button(root_frame,
-                  text="选择Root模式",
-                  command=lambda: self.select_mode(True),
-                  width=20).pack(pady=10)
-                  
-        ttk.Separator(mode_frame, orient="horizontal").pack(fill=tk.X, pady=20)
-        
-        # 用户模式按钮
-        user_frame = ttk.Frame(mode_frame)
-        user_frame.pack(fill=tk.X, pady=10)
-        
-        ttk.Label(user_frame,
-                 text="👤 用户模式",
-                 font=("Arial", 16, "bold")).pack()
-        ttk.Label(user_frame,
-                 text="用于管理个人项目和资源",
-                 font=("Arial", 10)).pack()
-        ttk.Button(user_frame,
-                  text="选择用户模式",
-                  command=lambda: self.select_mode(False),
-                  width=20).pack(pady=10)
-                  
-        # 日志区域
-        log_frame = ttk.LabelFrame(main_frame, text="📝 操作日志", padding="10")
-        # 连接面板
-        conn_frame = ttk.LabelFrame(main_frame, text="🔌 服务器连接", padding="10")
-        conn_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        
-        # IP地址输入
-        ttk.Label(conn_frame, text="服务器公网IP:").grid(row=0, column=0, sticky=tk.W, pady=2)
-        self.ip_var = tk.StringVar()
-        self.ip_entry = ttk.Entry(conn_frame, textvariable=self.ip_var, width=30)
-        self.ip_entry.grid(row=0, column=1, pady=2, padx=(5, 0))
-        
-        # PEM文件路径和状态
-        ttk.Label(conn_frame, text="PEM文件:").grid(row=1, column=0, sticky=tk.W, pady=2)
-        pem_frame = ttk.Frame(conn_frame)
-        pem_frame.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
-        
-        self.pem_var = tk.StringVar()
-        self.pem_entry = ttk.Entry(pem_frame, textvariable=self.pem_var, width=22)
-        self.pem_entry.grid(row=0, column=0)
-        
-        ttk.Button(pem_frame, text="浏览", command=self.browse_pem_file).grid(row=0, column=1, padx=(2, 0))
-        ttk.Button(pem_frame, text="自动", command=self.auto_find_pem).grid(row=0, column=2, padx=(2, 0))
-        
-        # PEM文件状态显示
-        self.pem_status_label = ttk.Label(conn_frame, text="❌ 未找到PEM文件", foreground="red")
-        self.pem_status_label.grid(row=2, column=0, columnspan=2, pady=(2, 0))
-        
-        # 快速连接预设
-        preset_frame = ttk.LabelFrame(conn_frame, text="🚀 快速连接", padding="5")
-        preset_frame.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
-        
-        ttk.Button(preset_frame, text="💾 保存连接", command=self.save_connection_preset).grid(row=0, column=0, padx=5)
-        ttk.Button(preset_frame, text="📋 加载连接", command=self.load_connection_preset).grid(row=0, column=1, padx=5)
-        
-        # 连接按钮
-        self.connect_btn = ttk.Button(conn_frame, text="🔗 连接服务器", command=self.connect_and_enter)
-        self.connect_btn.grid(row=4, column=0, columnspan=2, pady=(10, 0), sticky=(tk.W, tk.E))
-        
-        # 连接状态
-        self.status_label = ttk.Label(conn_frame, text="❌ 未连接", foreground="red")
-        self.status_label.grid(row=5, column=0, columnspan=2, pady=(5, 0))
-        
-        # 日志区域
-        log_frame = ttk.LabelFrame(main_frame, text="📝 操作日志", padding="10")
-        log_frame.grid(row=1, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(10, 0))
-        
-        self.log_text = tk.Text(log_frame, height=15, width=50)
-        self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        
-        log_scroll = ttk.Scrollbar(log_frame, orient="vertical", command=self.log_text.yview)
-        log_scroll.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        self.log_text.configure(yscrollcommand=log_scroll.set)
-        
-        # 初始化时自动查找PEM文件
-        self.auto_find_pem()
-        
-    def connect_and_enter(self):
-        """连接服务器并进入功能界面"""
-        if not self.connected:
-            try:
-                self.connect_server()
-                if not self.connected:
-                    return
-            except Exception as e:
-                self.log(f"❌ 连接失败: {str(e)}")
-                messagebox.showerror("连接失败", str(e))
-                return
-        
-        if self.connected:
-            if self.is_admin_mode:
-                self.setup_admin_ui()
-            else:
-                self.setup_user_ui()
-            
-    def show_mode_selection(self):
-        """显示模式选择对话框"""
-        dialog = tk.Toplevel(self.root)
-        dialog.title("选择管理模式")
-        dialog.geometry("400x300")
-        dialog.transient(self.root)
-        dialog.grab_set()
-        
-        # 居中显示
-        dialog.update_idletasks()
-        width = dialog.winfo_width()
-        height = dialog.winfo_height()
-        x = (dialog.winfo_screenwidth() // 2) - (width // 2)
-        y = (dialog.winfo_screenheight() // 2) - (height // 2)
-        dialog.geometry(f"{width}x{height}+{x}+{y}")
-        
-        # 标题
-        ttk.Label(dialog, text="请选择管理模式", 
-                 font=("Arial", 16, "bold")).pack(pady=20)
-        
-        # 按钮框架
-        btn_frame = ttk.Frame(dialog)
-        btn_frame.pack(expand=True)
-        
-        # Root模式按钮
-        ttk.Button(btn_frame, 
-                  text="👑 Root管理模式",
-                  command=lambda: self.switch_to_mode(dialog, True),
-                  width=20).pack(pady=10)
-        ttk.Label(btn_frame, 
+        root_btn = ttk.Button(mode_frame,
+                            text="👑 Root管理模式",
+                            command=lambda: self.select_mode(True),
+                            width=30)
+        root_btn.pack(pady=10)
+        ttk.Label(mode_frame,
                  text="用于创建用户和管理系统",
                  font=("Arial", 10)).pack()
         
         # 分隔线
-        ttk.Separator(btn_frame, orient="horizontal").pack(fill=tk.X, pady=20)
+        ttk.Separator(mode_frame, orient="horizontal").pack(fill=tk.X, pady=30)
         
         # 用户模式按钮
-        ttk.Button(btn_frame, 
-                  text="👤 用户模式",
-                  command=lambda: self.switch_to_mode(dialog, False),
-                  width=20).pack(pady=10)
-        ttk.Label(btn_frame, 
+        user_btn = ttk.Button(mode_frame,
+                           text="👤 用户模式",
+                           command=lambda: self.select_mode(False),
+                           width=30)
+        user_btn.pack(pady=10)
+        ttk.Label(mode_frame,
                  text="用于管理个人项目和资源",
                  font=("Arial", 10)).pack()
-                 
-    def switch_to_mode(self, dialog, is_admin):
-        """切换到指定模式"""
+    
+    def select_mode(self, is_admin):
+        """选择管理模式"""
         self.is_admin_mode = is_admin
-        dialog.destroy()
-        if is_admin:
-            self.setup_admin_ui()
-        else:
-            self.setup_user_ui()
-            
-    def switch_mode(self):
-        """切换管理模式"""
-        self.show_mode_selection()
-        
-    def setup_admin_ui(self):
-        """设置管理员模式UI"""
+        self.setup_connection_ui()
+    
+    def setup_connection_ui(self):
+        """设置连接服务器界面"""
         # 清除现有界面
         for widget in self.root.winfo_children():
             widget.destroy()
             
         # 创建主框架
+        main_frame = ttk.Frame(self.root, padding="20")
+        main_frame.pack(expand=True, fill=tk.BOTH)
+        
+        # 标题
+        mode_text = "Root管理模式" if self.is_admin_mode else "用户模式"
+        title_label = ttk.Label(main_frame, 
+                              text=f"🚀 服务器管理系统 - {mode_text}",
+                              font=("Arial", 24, "bold"))
+        title_label.pack(pady=(0, 30))
+        
+        # 连接框架
+        conn_frame = ttk.LabelFrame(main_frame, text="🔌 服务器连接", padding="20")
+        conn_frame.pack(expand=True, fill=tk.BOTH)
+        
+        # IP地址输入
+        ttk.Label(conn_frame, text="服务器IP:").pack(anchor=tk.W, pady=(0, 5))
+        self.ip_var = tk.StringVar()
+        ttk.Entry(conn_frame, textvariable=self.ip_var, width=40).pack(fill=tk.X)
+        
+        # PEM文件选择
+        ttk.Label(conn_frame, text="PEM文件:").pack(anchor=tk.W, pady=(20, 5))
+        pem_frame = ttk.Frame(conn_frame)
+        pem_frame.pack(fill=tk.X)
+        
+        self.pem_var = tk.StringVar()
+        ttk.Entry(pem_frame, textvariable=self.pem_var, width=30).pack(side=tk.LEFT, expand=True, fill=tk.X)
+        ttk.Button(pem_frame, text="浏览", command=self.browse_pem_file).pack(side=tk.LEFT, padx=5)
+        ttk.Button(pem_frame, text="自动查找", command=self.auto_find_pem).pack(side=tk.LEFT)
+        
+        # PEM文件状态
+        self.pem_status_label = ttk.Label(conn_frame, text="❌ 未找到PEM文件", foreground="red")
+        self.pem_status_label.pack(pady=10)
+        
+        # 连接按钮
+        ttk.Button(conn_frame, 
+                  text="🔗 连接服务器",
+                  command=self.connect_and_enter_main,
+                  width=30).pack(pady=20)
+        
+        # 返回按钮
+        ttk.Button(main_frame,
+                  text="⬅️ 返回模式选择",
+                  command=self.setup_mode_selection,
+                  width=20).pack(pady=20)
+        
+        # 日志区域
+        log_frame = ttk.LabelFrame(main_frame, text="📝 连接日志", padding="10")
+        log_frame.pack(fill=tk.BOTH, expand=True, pady=20)
+        
+        self.log_text = tk.Text(log_frame, height=10)
+        self.log_text.pack(fill=tk.BOTH, expand=True)
+        
+        # 初始化时自动查找PEM文件
+        self.auto_find_pem()
+    
+    def connect_and_enter_main(self):
+        """连接服务器并进入主界面"""
+        if self.connect_server():
+            if self.is_admin_mode:
+                self.setup_admin_main_ui()
+            else:
+                self.setup_user_main_ui()
+                
+    def connect_server(self):
+        """连接到服务器"""
+        if not self.pem_var.get():
+            messagebox.showwarning("警告", "请先选择PEM文件")
+            return False
+            
+        ip = self.ip_var.get().strip()
+        if not ip:
+            messagebox.showwarning("警告", "请输入服务器IP")
+            return False
+            
+        self.current_ip = ip
+        self.log(f"🔄 正在连接到服务器 {ip}...")
+        
+        try:
+            if self.ssh_manager.connect(ip, "root", self.pem_var.get()):
+                self.connected = True
+                self.log("✅ 服务器连接成功")
+                return True
+            else:
+                self.log("❌ 服务器连接失败")
+                return False
+        except Exception as e:
+            self.log(f"❌ 连接出错: {str(e)}")
+            return False
+    
+    def setup_admin_main_ui(self):
+        """设置管理员主界面"""
+        # 清除现有界面
+        for widget in self.root.winfo_children():
+            widget.destroy()
+            
+        # 创建主框架
+        main_frame = ttk.Frame(self.root, padding="20")
+        main_frame.pack(expand=True, fill=tk.BOTH)
+        
+        # 顶部标题栏
+        title_frame = ttk.Frame(main_frame)
+        title_frame.pack(fill=tk.X, pady=(0, 20))
+        
+        ttk.Label(title_frame, 
+                 text="👑 服务器管理系统 - Root管理模式",
+                 font=("Arial", 24, "bold")).pack(side=tk.LEFT)
+                 
+        ttk.Button(title_frame,
+                  text="⬅️ 返回连接",
+                  command=self.setup_connection_ui,
+                  width=15).pack(side=tk.RIGHT)
+        
+        # 创建左右分栏
+        content_frame = ttk.Frame(main_frame)
+        content_frame.pack(expand=True, fill=tk.BOTH)
+        
+        # 左侧 - 用户管理面板
+        left_frame = ttk.LabelFrame(content_frame, text="👥 用户管理", padding="10")
+        left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
+        
+        # 用户列表
+        self.user_tree = ttk.Treeview(left_frame, columns=("权限", "状态"), height=15)
+        self.user_tree.heading("#0", text="用户名")
+        self.user_tree.heading("权限", text="权限")
+        self.user_tree.heading("状态", text="状态")
+        
+        self.user_tree.column("#0", width=150)
+        self.user_tree.column("权限", width=100)
+        self.user_tree.column("状态", width=100)
+        
+        self.user_tree.pack(fill=tk.BOTH, expand=True)
+        
+        # 用户管理按钮
+        user_btn_frame = ttk.Frame(left_frame)
+        user_btn_frame.pack(fill=tk.X, pady=(10, 0))
+        
+        ttk.Button(user_btn_frame, text="➕ 创建用户",
+                  command=self.create_new_user).pack(side=tk.LEFT, padx=5)
+        ttk.Button(user_btn_frame, text="❌ 删除用户",
+                  command=self.delete_user).pack(side=tk.LEFT, padx=5)
+        ttk.Button(user_btn_frame, text="🔄 刷新列表",
+                  command=self.refresh_user_list).pack(side=tk.LEFT, padx=5)
+        
+        # 右侧 - 系统信息和日志
+        right_frame = ttk.Frame(content_frame)
+        right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+        
+        # 系统信息面板
+        sys_frame = ttk.LabelFrame(right_frame, text="📊 系统信息", padding="10")
+        sys_frame.pack(fill=tk.BOTH, expand=True)
+        
+        self.sys_info_text = tk.Text(sys_frame, height=8)
+        self.sys_info_text.pack(fill=tk.BOTH, expand=True)
+        
+        ttk.Button(sys_frame, text="🔄 刷新信息",
+                  command=self.refresh_system_info).pack(pady=(10, 0))
+        
+        # 日志面板
+        log_frame = ttk.LabelFrame(right_frame, text="📝 操作日志", padding="10")
+        log_frame.pack(fill=tk.BOTH, expand=True, pady=(20, 0))
+        
+        self.log_text = tk.Text(log_frame, height=10)
+        self.log_text.pack(fill=tk.BOTH, expand=True)
+        
+        # 初始化数据
+        self.refresh_user_list()
+        self.refresh_system_info()
+    
+    def setup_user_main_ui(self):
+        """设置用户主界面"""
+        # 清除现有界面
+        for widget in self.root.winfo_children():
+            widget.destroy()
+            
+        # 创建用户模式主框架
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
@@ -249,25 +310,20 @@ class ServerManagerGUI:
         main_frame.columnconfigure(1, weight=1)
         main_frame.rowconfigure(1, weight=1)
         
-        # 顶部工具栏
-        toolbar = ttk.Frame(main_frame)
-        toolbar.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
-        
         # 标题
-        ttk.Label(toolbar, 
-                 text="👑 服务器管理系统 - Root管理模式",
-                 font=("Arial", 18, "bold")).pack(side=tk.LEFT)
-                 
-        # 模式切换按钮
-        ttk.Button(toolbar, 
-                  text="🔄 切换模式",
-                  command=self.switch_mode).pack(side=tk.RIGHT)
+        title_label = ttk.Label(main_frame, 
+                              text="👤 服务器管理系统 - 用户模式",
+                              font=("Arial", 18, "bold"))
+        title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
         
-        # 左侧 - 用户管理面板
-        self.setup_admin_user_panel(main_frame)
+        # 左侧连接面板
+        self.setup_user_connection_panel(main_frame)
         
-        # 右侧 - 系统信息和日志
-        self.setup_admin_info_panel(main_frame)
+        # 右侧功能区
+        self.setup_user_function_panel(main_frame)
+        
+        # 底部状态栏
+        self.setup_status_bar(main_frame)
         
     def setup_admin_user_panel(self, parent):
         """设置管理员的用户管理面板"""
@@ -337,32 +393,81 @@ class ServerManagerGUI:
         """创建新用户对话框"""
         dialog = tk.Toplevel(self.root)
         dialog.title("创建新用户")
-        dialog.geometry("400x300")
+        dialog.geometry("500x600")
         dialog.transient(self.root)
         
-        ttk.Label(dialog, text="创建新用户", font=("Arial", 14, "bold")).pack(pady=10)
+        # 主框架
+        main_frame = ttk.Frame(dialog, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        ttk.Label(main_frame, text="创建新用户", font=("Arial", 14, "bold")).pack(pady=10)
+        
+        # 用户信息输入框架
+        input_frame = ttk.LabelFrame(main_frame, text="用户信息", padding="10")
+        input_frame.pack(fill=tk.X, pady=(0, 20))
         
         # 用户名
-        ttk.Label(dialog, text="用户名:").pack(pady=(10, 0))
+        ttk.Label(input_frame, text="用户名:").pack(pady=(10, 0))
         username_var = tk.StringVar()
-        ttk.Entry(dialog, textvariable=username_var).pack(pady=(0, 10))
+        ttk.Entry(input_frame, textvariable=username_var).pack(pady=(0, 10), fill=tk.X)
         
         # 密码
-        ttk.Label(dialog, text="密码:").pack(pady=(10, 0))
+        ttk.Label(input_frame, text="密码:").pack(pady=(10, 0))
         password_var = tk.StringVar()
-        ttk.Entry(dialog, textvariable=password_var, show="*").pack(pady=(0, 10))
+        ttk.Entry(input_frame, textvariable=password_var, show="*").pack(pady=(0, 10), fill=tk.X)
         
         # 确认密码
-        ttk.Label(dialog, text="确认密码:").pack(pady=(10, 0))
+        ttk.Label(input_frame, text="确认密码:").pack(pady=(10, 0))
         confirm_var = tk.StringVar()
-        ttk.Entry(dialog, textvariable=confirm_var, show="*").pack(pady=(0, 10))
+        ttk.Entry(input_frame, textvariable=confirm_var, show="*").pack(pady=(0, 10), fill=tk.X)
+        
+        # 资源限制框架
+        resource_frame = ttk.LabelFrame(main_frame, text="资源限制", padding="10")
+        resource_frame.pack(fill=tk.X, pady=(0, 20))
+        
+        # 磁盘配额
+        ttk.Label(resource_frame, text="磁盘配额 (GB):").pack(pady=(10, 0))
+        disk_quota_var = tk.StringVar(value="10")
+        ttk.Entry(resource_frame, textvariable=disk_quota_var).pack(pady=(0, 10), fill=tk.X)
+        
+        # 最大项目数
+        ttk.Label(resource_frame, text="最大项目数:").pack(pady=(10, 0))
+        max_projects_var = tk.StringVar(value="5")
+        ttk.Entry(resource_frame, textvariable=max_projects_var).pack(pady=(0, 10), fill=tk.X)
         
         # 权限选项
-        ttk.Label(dialog, text="用户权限:").pack(pady=(10, 0))
-        sudo_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(dialog, text="授予sudo权限", variable=sudo_var).pack()
+        perm_frame = ttk.LabelFrame(main_frame, text="用户权限", padding="10")
+        perm_frame.pack(fill=tk.X, pady=(0, 20))
         
-        def do_create():
+        sudo_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(perm_frame, text="授予sudo权限", variable=sudo_var).pack(pady=5)
+        
+        docker_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(perm_frame, text="允许使用Docker", variable=docker_var).pack(pady=5)
+        
+        # 预览信息
+        preview_frame = ttk.LabelFrame(main_frame, text="创建预览", padding="10")
+        preview_frame.pack(fill=tk.X, pady=(0, 20))
+        
+        preview_text = tk.Text(preview_frame, height=5, wrap=tk.WORD)
+        preview_text.pack(fill=tk.X)
+        
+        def update_preview():
+            """更新预览信息"""
+            preview = f"""用户名: {username_var.get()}
+磁盘配额: {disk_quota_var.get()} GB
+最大项目数: {max_projects_var.get()}
+sudo权限: {'是' if sudo_var.get() else '否'}
+Docker权限: {'是' if docker_var.get() else '否'}"""
+            preview_text.delete(1.0, tk.END)
+            preview_text.insert(1.0, preview)
+        
+        # 按钮框架
+        btn_frame = ttk.Frame(main_frame)
+        btn_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        def validate_and_create():
+            """验证输入并创建用户"""
             username = username_var.get().strip()
             password = password_var.get()
             confirm = confirm_var.get()
@@ -379,22 +484,43 @@ class ServerManagerGUI:
                 messagebox.showerror("错误", "两次输入的密码不一致")
                 return
                 
+            if not disk_quota_var.get().isdigit() or not max_projects_var.get().isdigit():
+                messagebox.showerror("错误", "资源限制必须是数字")
+                return
+            
+            # 显示确认对话框
+            preview = f"""确认创建以下用户：
+
+用户名: {username}
+磁盘配额: {disk_quota_var.get()} GB
+最大项目数: {max_projects_var.get()}
+sudo权限: {'是' if sudo_var.get() else '否'}
+Docker权限: {'是' if docker_var.get() else '否'}
+
+是否确认创建？"""
+            
+            if messagebox.askyesno("确认创建", preview):
             # 执行创建用户的命令
-            commands = [
-                # 创建用户
-                f"useradd -m -s /bin/bash {username}",
-                # 设置密码
-                f"echo '{username}:{password}' | chpasswd",
-                # 创建home目录
-                f"mkdir -p /home/{username}",
-                # 设置目录权限
-                f"chown {username}:{username} /home/{username}",
-                f"chmod 755 /home/{username}"
-            ]
+                commands = [
+                    # 创建用户
+                    f"useradd -m -s /bin/bash {username}",
+                    # 设置密码
+                    f"echo '{username}:{password}' | chpasswd",
+                    # 创建home目录
+                    f"mkdir -p /home/{username}",
+                    # 设置目录权限
+                    f"chown {username}:{username} /home/{username}",
+                        f"chmod 755 /home/{username}",
+                        # 设置磁盘配额
+                        f"setquota -u {username} {int(disk_quota_var.get())*1024*1024} {int(disk_quota_var.get())*1024*1024} 0 0 /",
+                ]
             
             if sudo_var.get():
                 commands.append(f"usermod -aG sudo {username}")
             
+                if docker_var.get():
+                    commands.append(f"usermod -aG docker {username}")
+                
             success = True
             for cmd in commands:
                 _, stderr, exit_code = self.ssh_manager.execute_command(f"sudo {cmd}")
@@ -411,7 +537,21 @@ class ServerManagerGUI:
             else:
                 messagebox.showerror("错误", "创建用户失败，请查看日志")
         
-        ttk.Button(dialog, text="创建", command=do_create).pack(pady=20)
+        # 预览按钮
+        ttk.Button(btn_frame, text="预览", command=update_preview).pack(side=tk.LEFT, padx=5)
+        
+        # 创建按钮
+        ttk.Button(btn_frame, text="创建", command=validate_and_create).pack(side=tk.LEFT, padx=5)
+        
+        # 取消按钮
+        ttk.Button(btn_frame, text="取消", command=dialog.destroy).pack(side=tk.LEFT, padx=5)
+        
+        # 初始预览
+        update_preview()
+        
+        # 设置对话框为模态
+        dialog.grab_set()
+        dialog.wait_window()
         
     def delete_user(self):
         """删除选中的用户"""
@@ -661,18 +801,69 @@ CPU核心：{info.get('cpu_cores', 'N/A')}
             messagebox.showerror("错误", f"生成SSH密钥失败：{str(e)}")
             
     def browse_ssh_key(self):
-        """浏览选择SSH公钥文件"""
-        filename = filedialog.askopenfilename(
+        """浏览选择SSH密钥文件"""
+        key_file = filedialog.askopenfilename(
             title="选择SSH公钥文件",
-            initialdir=str(Path.home() / ".ssh"),
-            filetypes=[
-                ("SSH公钥", "*.pub"),
-                ("所有文件", "*.*")
-            ])
+            filetypes=[("SSH公钥", "*.pub"), ("所有文件", "*.*")]
+        )
         
-        if filename:
-            self.key_var.set(filename)
+        if key_file:
+            self.key_var.set(key_file)
+            self.key_status_label.configure(text="✅ 已选择密钥文件", foreground="green")
             
+            # 获取连接信息
+            username = self.username_var.get().strip()
+            ip = self.ip_var.get().strip()
+            
+            if not all([username, ip, key_file]):
+                messagebox.showerror("错误", "请填写完整的连接信息")
+                return
+                
+            def connect_thread():
+                try:
+                    # 上传公钥到服务器
+                    with open(key_file, 'r') as f:
+                        public_key = f.read().strip()
+                    
+                    # 先用root连接上传公钥
+                    if not self.ssh_manager.connect(ip, "root", self.pem_handler.find_pem_file_auto()):
+                        raise Exception("无法连接到服务器")
+                    
+                    # 确保用户的.ssh目录存在
+                    commands = [
+                        f"mkdir -p /home/{username}/.ssh",
+                        f"touch /home/{username}/.ssh/authorized_keys",
+                        f"echo '{public_key}' >> /home/{username}/.ssh/authorized_keys",
+                        f"chmod 700 /home/{username}/.ssh",
+                        f"chmod 600 /home/{username}/.ssh/authorized_keys",
+                        f"chown -R {username}:{username} /home/{username}/.ssh"
+                    ]
+                    
+                    for cmd in commands:
+                        _, stderr, exit_code = self.ssh_manager.execute_command(cmd)
+                        if exit_code != 0:
+                            raise Exception(f"命令执行失败：{stderr}")
+                    
+                    # 断开root连接
+                    self.ssh_manager.close()
+                    
+                    # 使用用户密钥连接
+                    private_key = key_file[:-4]  # 移除.pub后缀
+                    if self.ssh_manager.connect(ip, username, private_key):
+                        self.connected = True
+                        self.current_ip = ip
+                        self.log(f"✅ 服务器连接成功！({username}@{ip})")
+                        self.update_status()
+                        self.refresh_user_status()
+                    else:
+                        raise Exception("用户连接失败")
+                        
+                except Exception as e:
+                    self.log(f"❌ 连接失败：{str(e)}")
+                    messagebox.showerror("连接失败", str(e))
+        
+        threading.Thread(target=connect_thread, daemon=True).start()
+    
     def connect_as_user(self):
         """用户模式连接服务器"""
         username = self.username_var.get().strip()
@@ -727,7 +918,7 @@ CPU核心：{info.get('cpu_cores', 'N/A')}
                 messagebox.showerror("连接失败", str(e))
         
         threading.Thread(target=connect_thread, daemon=True).start()
-        
+    
     def create_user_project(self):
         """创建用户项目"""
         if not self.connected:
@@ -1111,13 +1302,29 @@ CPU核心：{info.get('cpu_cores', 'N/A')}
         """自动查找PEM文件"""
         def find_task():
             self.log("🔍 正在自动查找PEM文件...")
-            pem_path = self.pem_handler.find_pem_file_auto()
             
-            if pem_path:
-                # 使用after方法在主线程中更新GUI
-                self.root.after(0, lambda: self.update_pem_status(pem_path))
-            else:
-                self.root.after(0, lambda: self.show_pem_not_found())
+            # 从配置文件获取搜索路径
+            search_paths = self.config.get("PEM", "search_paths", fallback="").split("\n")
+            search_paths = [path.strip() for path in search_paths if path.strip()]
+            
+            # 添加当前目录到搜索路径
+            search_paths.append(os.path.dirname(os.path.abspath(__file__)))
+            
+            # 遍历所有可能的路径
+            for path in search_paths:
+                expanded_path = os.path.expanduser(path)
+                if not os.path.exists(expanded_path):
+                    continue
+                    
+                # 搜索.pem文件
+                for file in os.listdir(expanded_path):
+                    if file.endswith('.pem'):
+                        pem_path = os.path.join(expanded_path, file)
+                        if self.pem_handler._is_valid_pem_file(pem_path):
+                            self.root.after(0, lambda: self.update_pem_status(pem_path))
+                            return
+            
+            self.root.after(0, lambda: self.show_pem_not_found())
         
         threading.Thread(target=find_task, daemon=True).start()
 
@@ -1126,19 +1333,19 @@ CPU核心：{info.get('cpu_cores', 'N/A')}
         self.pem_var.set(pem_path)
         self.pem_status_label.configure(text="✅ PEM文件已找到", foreground="green")
         self.log(f"✅ 自动找到PEM文件: {pem_path}")
-    
+                
     def show_pem_not_found(self):
         """显示未找到PEM文件的提示"""
         self.pem_status_label.configure(text="❌ 未找到PEM文件", foreground="red")
         self.log("❌ 未找到PEM文件，请手动选择或上传")
         messagebox.showinfo("提示", 
-            "未找到PEM文件！\n\n"
-            "请点击'浏览'按钮选择PEM文件，\n"
-            "或将luojie.pem文件放在以下位置之一：\n"
-            "• E:\\server_connect\\luojie.pem\n"
-            "• 用户文档文件夹\n"
-            "• 用户桌面\n"
-            "• 程序当前目录")
+                    "未找到PEM文件！\n\n"
+                    "请点击'浏览'按钮选择PEM文件，\n"
+                    "或将luojie.pem文件放在以下位置之一：\n"
+                    "• E:\\server_connect\\luojie.pem\n"
+                    "• 用户文档文件夹\n"
+                    "• 用户桌面\n"
+                    "• 程序当前目录")
     
     def browse_pem_file(self):
         """浏览PEM文件"""
@@ -1274,26 +1481,26 @@ CPU核心：{info.get('cpu_cores', 'N/A')}
     
     def connect_server(self):
         """连接到服务器"""
-        try:
-            if not self.pem_var.get():
-                messagebox.showwarning("警告", "请先选择PEM文件")
-                return False
-                
-            ip = self.ip_var.get().strip()
-            if not ip:
-                messagebox.showwarning("警告", "请输入服务器IP")
-                return False
-                
-            self.current_ip = ip
-            self.log(f"🔄 正在连接到服务器 {ip}...")
+        if not self.pem_var.get():
+            messagebox.showwarning("警告", "请先选择PEM文件")
+            return False
             
+        ip = self.ip_var.get().strip()
+        if not ip:
+            messagebox.showwarning("警告", "请输入服务器IP")
+            return False
+            
+        self.current_ip = ip
+        self.log(f"🔄 正在连接到服务器 {ip}...")
+        
+        try:
             if self.ssh_manager.connect(ip, "root", self.pem_var.get()):
-                self.connected = True
-                self.log("✅ 服务器连接成功")
-                return True
+                    self.connected = True
+                    self.log("✅ 服务器连接成功")
+                    return True
             else:
-                self.log("❌ 服务器连接失败")
-                return False
+                    self.log("❌ 服务器连接失败")
+                    return False
         except Exception as e:
             self.log(f"❌ 连接出错: {str(e)}")
             return False
@@ -1312,7 +1519,7 @@ CPU核心：{info.get('cpu_cores', 'N/A')}
                     return
             except Exception as e:
                 self.log(f"❌ 连接失败: {str(e)}")
-                return
+            return
         
         def task():
             self.log("👥 开始创建用户...")
@@ -1662,3 +1869,5 @@ def main():
 
 if __name__ == "__main__":
     main() 
+
+#嘿嘿

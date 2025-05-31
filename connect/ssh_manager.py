@@ -23,11 +23,16 @@ class SSHManager:
         """连接SSH服务器"""
         try:
             with self.connection_lock:
+                print(f"🔄 开始连接到 {username}@{ip_address}")
+                print(f"⏳ 连接超时设置: {timeout}秒")
+                
                 # 关闭现有连接
                 if self.client:
+                    print("🔄 关闭现有连接...")
                     self.client.close()
                 
                 # 创建新连接
+                print("🔄 创建新的SSH客户端...")
                 self.client = paramiko.SSHClient()
                 self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                 
@@ -37,14 +42,32 @@ class SSHManager:
                     'username': username,
                     'timeout': timeout,
                     'look_for_keys': False,
-                    'allow_agent': False
+                    'allow_agent': False,
+                    'banner_timeout': 60,  # 增加banner超时时间
+                    'auth_timeout': 60,    # 增加认证超时时间
+                    'port': 22             # 明确指定端口
                 }
                 
                 # 使用PEM文件或密码
-                if pem_file_path and Path(pem_file_path).exists():
-                    print(f"🔑 使用PEM文件连接: {pem_file_path}")
-                    pkey = paramiko.RSAKey.from_private_key_file(pem_file_path)
-                    connect_kwargs['pkey'] = pkey
+                if pem_file_path and os.path.exists(pem_file_path):
+                    print(f"🔑 正在读取PEM文件: {pem_file_path}")
+                    try:
+                        # 尝试不同的密钥类型
+                        try:
+                            pkey = paramiko.RSAKey.from_private_key_file(pem_file_path)
+                        except:
+                            try:
+                                pkey = paramiko.Ed25519Key.from_private_key_file(pem_file_path)
+                            except:
+                                pkey = paramiko.DSSKey.from_private_key_file(pem_file_path)
+                        
+                        connect_kwargs['pkey'] = pkey
+                        print("✅ PEM文件读取成功")
+                    except Exception as e:
+                        print(f"❌ PEM文件读取失败: {str(e)}")
+                        if "not a valid RSA private key file" in str(e):
+                            print("提示: 请确保PEM文件是有效的私钥格式")
+                        return False
                 elif password:
                     print("🔑 使用密码连接")
                     connect_kwargs['password'] = password
@@ -52,43 +75,86 @@ class SSHManager:
                     print("❌ 没有提供有效的认证方式")
                     return False
                 
+                print(f"🔄 正在连接到 {ip_address}...")
+                print("连接参数:")
+                print(f"  - 用户名: {username}")
+                print(f"  - 超时时间: {timeout}秒")
+                print(f"  - 认证方式: {'PEM密钥' if pem_file_path else '密码'}")
+                
                 # 建立连接
-                self.client.connect(**connect_kwargs)
+                try:
+                    self.client.connect(**connect_kwargs)
+                    print("✅ 初始连接成功")
+                except paramiko.AuthenticationException as e:
+                    print(f"❌ SSH认证失败: {str(e)}")
+                    print("请检查:")
+                    print("1. PEM文件是否正确")
+                    print("2. 用户名是否正确")
+                    print("3. 服务器是否允许密钥认证")
+                    print("4. PEM文件的格式和权限是否正确")
+                    return False
+                except paramiko.SSHException as e:
+                    print(f"❌ SSH连接错误: {str(e)}")
+                    print("可能的原因:")
+                    print("1. SSH服务未启动")
+                    print("2. SSH配置问题")
+                    print("3. 网络连接问题")
+                    return False
+                except socket.timeout:
+                    print("❌ 连接超时，请检查:")
+                    print("1. 服务器IP是否正确")
+                    print("2. 服务器是否在线")
+                    print("3. 防火墙是否允许SSH连接")
+                    print("4. 网络连接是否稳定")
+                    return False
+                except socket.error as e:
+                    print(f"❌ 网络错误: {str(e)}")
+                    print("可能的原因:")
+                    print("1. 网络连接不稳定")
+                    print("2. DNS解析问题")
+                    print("3. 防火墙拦截")
+                    return False
+                
+                print("🔄 正在测试连接...")
                 
                 # 测试连接
-                stdin, stdout, stderr = self.client.exec_command('echo "connection test"')
-                result = stdout.read().decode().strip()
-                
-                if result == "connection test":
-                    self.ip_address = ip_address
-                    self.username = username
-                    self.is_connected_flag = True
-                    print(f"✅ SSH连接成功: {username}@{ip_address}")
+                try:
+                    print("发送测试命令: echo 'connection test'")
+                    stdin, stdout, stderr = self.client.exec_command('echo "connection test"', timeout=10)
+                    result = stdout.read().decode().strip()
+                    error = stderr.read().decode().strip()
                     
-                    # 获取系统信息
-                    try:
-                        stdin, stdout, stderr = self.client.exec_command("uname -a")
-                        system_info = stdout.read().decode().strip()
-                        print(f"📊 系统信息: {system_info}")
-                    except Exception as e:
-                        print(f"⚠️ 无法获取系统信息: {str(e)}")
+                    if error:
+                        print(f"⚠️ 命令错误输出: {error}")
                     
-                    return True
-                else:
-                    print("❌ 连接测试失败")
+                    if result == "connection test":
+                        self.ip_address = ip_address
+                        self.username = username
+                        self.is_connected_flag = True
+                        print(f"✅ SSH连接测试成功: {username}@{ip_address}")
+                        
+                        # 获取系统信息
+                        try:
+                            print("🔄 获取系统信息...")
+                            stdin, stdout, stderr = self.client.exec_command("uname -a")
+                            system_info = stdout.read().decode().strip()
+                            print(f"📊 系统信息: {system_info}")
+                        except Exception as e:
+                            print(f"⚠️ 无法获取系统信息: {str(e)}")
+                        
+                        return True
+                    else:
+                        print("❌ 连接测试失败")
+                        print(f"预期输出: 'connection test'")
+                        print(f"实际输出: '{result}'")
+                        return False
+                except Exception as e:
+                    print(f"❌ 连接测试失败: {str(e)}")
                     return False
                     
-        except paramiko.AuthenticationException:
-            print("❌ SSH认证失败，请检查PEM文件或密码")
-            return False
-        except paramiko.SSHException as e:
-            print(f"❌ SSH连接错误: {e}")
-            return False
-        except socket.timeout:
-            print("❌ 连接超时")
-            return False
         except Exception as e:
-            print(f"❌ 连接失败: {e}")
+            print(f"❌ 连接过程中发生错误: {str(e)}")
+            print(f"错误类型: {type(e).__name__}")
             return False
     
     def is_connected(self):
